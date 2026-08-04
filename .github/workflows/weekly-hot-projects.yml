@@ -1,0 +1,48 @@
+name: Weekly Hot Projects
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Every Monday at 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  find-hot-projects:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip && pip install requests
+
+      - name: Run hot-projects script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOP_N: '20'     # number of results
+          DAYS: '7'       # lookback window in days
+          # Optional: set QUERY to further filter (e.g. "language:Python" or "org:apache")
+        run: |
+          python scripts/get_hot_projects.py
+
+      - name: Commit & push results
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add results || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Weekly hot projects: $(date -u +%F)"
+            BRANCH=${GITHUB_REF#refs/heads/}
+            git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}" HEAD:$BRANCH
+          fi
