@@ -26,9 +26,15 @@ jobs:
       - name: Run hot-projects script
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TOP_N: '20'     # number of results
+          TOP_N: '30'     # number of results
           DAYS: '7'       # lookback window in days
-          # Optional: set QUERY to further filter (e.g. "language:Python" or "org:apache")
+          KEYWORDS: 'AI agent,harness engineering,agent'
+          ORGS: 'openai,harness'
+          GITEE_ORGS: ''
+          EXTRA_REPOS: ''
+          PER_SOURCE: '50'
+          SORT: 'stars'
+          VERBOSE: '1'   # enable debug logging in the script
         run: |
           python scripts/get_hot_projects.py
 
