@@ -26,6 +26,7 @@ import requests
 import datetime
 import time
 import json
+import textwrap
 from urllib.parse import urlparse
 
 # ---- config / env ----
@@ -184,20 +185,54 @@ def sort_and_select(repos):
     return sorted_repos[:TOP_N]
 
 def format_markdown(repos, since, today):
+    """
+    Produce a more readable Markdown output:
+    - A compact summary table (Rank, Repo, Stars, Forks, Last Push, Topics)
+    - A detailed section with numbered entries: description, full topics, and metadata
+    """
+    wrapper = textwrap.TextWrapper(width=100)
     lines = []
     lines.append(f"# Hot projects for week ending {today} (based on pushed:>{since})\n")
-    lines.append("| # | Repo | Stars | Forks | Last Push | Description | Topics |")
+
+    # Summary table header
+    lines.append("## Summary\n")
+    lines.append("| # | Repo | Stars | Forks | Last Push | Topics |")
     lines.append("|---:|---|---:|---:|---|---|")
     for i, r in enumerate(repos, start=1):
-        name = r.get("full_name")
+        name = r.get("full_name") or ""
+        html_url = r.get("html_url") or ""
         stars = r.get("stargazers_count", 0)
         forks = r.get("forks_count", 0)
-        desc = (r.get("description") or "").replace("\n", " ").replace("|", "\\|")
-        html_url = r.get("html_url")
-        pushed = r.get("pushed_at", "")[:19].replace("T", " ") if r.get("pushed_at") else ""
-        topics = ", ".join(r.get("topics", [])) if isinstance(r.get("topics"), list) else ""
-        lines.append(f"| {i} | [{name}]({html_url}) | {stars} | {forks} | {pushed} | {desc} | {topics} |")
+        pushed = (r.get("pushed_at") or "")[:19].replace("T", " ") if r.get("pushed_at") else ""
+        topics = ", ".join((r.get("topics") or [])[:5]) if isinstance(r.get("topics"), list) else ""
+        lines.append(f"| {i} | [{name}]({html_url}) | {stars} | {forks} | {pushed} | {topics} |")
+
+    # Details section
+    lines.append("\n## Details\n")
+    for i, r in enumerate(repos, start=1):
+        name = r.get("full_name") or ""
+        html_url = r.get("html_url") or ""
+        stars = r.get("stargazers_count", 0)
+        forks = r.get("forks_count", 0)
+        pushed = (r.get("pushed_at") or "")[:19].replace("T", " ") if r.get("pushed_at") else ""
+        topics_list = r.get("topics") or []
+        topics = ", ".join(topics_list) if isinstance(topics_list, list) else str(topics_list)
+        desc = (r.get("description") or "").strip()
+        # Wrap description for readability
+        desc_wrapped = "\n".join(wrapper.fill(par) for par in desc.splitlines()) if desc else "(no description)"
+
+        lines.append(f"### {i}. [{name}]({html_url})\n")
+        lines.append(f"- Stars: **{stars}**  ")
+        lines.append(f"- Forks: {forks}  ")
+        lines.append(f"- Last push: {pushed}  ")
+        if topics:
+            lines.append(f"- Topics: {topics}  ")
+        lines.append("\n**Description**:\n")
+        lines.append(desc_wrapped)
+        lines.append("\n---\n")
+
     return "\n".join(lines)
+
 
 def main():
     since = (datetime.datetime.utcnow() - datetime.timedelta(days=DAYS)).date().isoformat()
@@ -221,7 +256,7 @@ def main():
         f.write(md)
     json_path = os.path.join("results", f"hot-projects-{today}.json")
     with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(final, f, indent=2)
+        json.dump(final, f, indent=2, ensure_ascii=False)
 
     print(f"Wrote {md_path} and {json_path}")
 
